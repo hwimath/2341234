@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>휘매쓰 연산 챌린지!</title>
+    <style>
+        body {
+            font-family: 'Nanum Gothic', sans-serif;
+            text-align: center;
+            background-color: #f0f8ff;
+        }
+        #start-screen, #game-container {
+            margin-top: 50px;
+        }
+        h1 {
+            font-size: 48px;
+            color: #ff6b6b;
+        }
+        button {
+            font-size: 20px;
+            padding: 10px 20px;
+            margin: 10px;
+            background-color: #ffcc5c;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #ffb347;
+        }
+        #total-time, #score, #chances {
+            font-size: 24px;
+            margin: 10px;
+        }
+        #problem {
+            font-size: 36px;
+            margin: 20px;
+            color: #4a4e4d;
+        }
+        #energy-bar-container {
+            width: 80%;
+            background-color: #ccc;
+            height: 30px;
+            margin: 20px auto;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        #energy-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #76c7c0;
+        }
+        #answer-input {
+            font-size: 24px;
+            padding: 5px;
+            width: 200px;
+            text-align: center;
+        }
+        #answer-input:focus {
+            outline: none;
+            border: 2px solid #76c7c0;
+        }
+        #game-container button {
+            background-color: #ff6b6b;
+        }
+        #game-container button:hover {
+            background-color: #ff4e50;
+        }
+    </style>
+</head>
+<body>
+    <div id="start-screen">
+        <h1>휘매쓰 연산 챌린지!</h1>
+        <p style="font-size:24px;">난이도를 선택하세요:</p>
+        <button onclick="startGame('최상')">최상</button>
+        <button onclick="startGame('상')">상</button>
+        <button onclick="startGame('중')">중</button>
+        <button onclick="startGame('하')">하</button>
+    </div>
+
+    <script>
+        let problems = [];
+        while (problems.length < 50) {
+            let num1 = Math.floor(Math.random() * 90) + 10; // 10 ~ 99
+            let num2 = Math.floor(Math.random() * 90) + 10; // 10 ~ 99
+            let sum = num1 + num2;
+            if (sum <= 100) {
+                problems.push({num1: num1, num2: num2, sum: sum});
+            }
+        }
+
+        let currentProblemIndex = 0;
+        let score = 0;
+        let chancesLeft = 3;
+        let totalTimeElapsed = 0;
+        let timeLimit = 0;
+        let pointsPerQuestion = 0;
+        let timeLimitDecreaseRate = 0.01;
+        let gameInterval;
+        let problemTimer;
+        let selectedDifficulty = '';
+        let currentProblem;
+
+        function startGame(difficulty) {
+            selectedDifficulty = difficulty;
+            if (difficulty === '최상') {
+                timeLimit = 20;
+                pointsPerQuestion = 20;
+            } else if (difficulty === '상') {
+                timeLimit = 30;
+                pointsPerQuestion = 15;
+            } else if (difficulty === '중') {
+                timeLimit = 40;
+                pointsPerQuestion = 13;
+            } else if (difficulty === '하') {
+                timeLimit = Infinity;
+                pointsPerQuestion = 10;
+            }
+
+            document.getElementById('start-screen').style.display = 'none';
+            showGameInterface();
+
+            gameInterval = setInterval(function() {
+                totalTimeElapsed++;
+                document.getElementById('total-time').innerText = '전체 게임 시간: ' + formatTime(totalTimeElapsed);
+            }, 1000);
+
+            showNextProblem();
+        }
+
+        function showGameInterface() {
+            let gameContainer = document.createElement('div');
+            gameContainer.id = 'game-container';
+
+            let totalTimeDiv = document.createElement('div');
+            totalTimeDiv.id = 'total-time';
+            totalTimeDiv.innerText = '전체 게임 시간: 00:00';
+
+            let scoreDiv = document.createElement('div');
+            scoreDiv.id = 'score';
+            scoreDiv.innerText = '점수: 0';
+
+            let chancesDiv = document.createElement('div');
+            chancesDiv.id = 'chances';
+            chancesDiv.innerText = '남은 기회: 3';
+
+            let problemDiv = document.createElement('div');
+            problemDiv.id = 'problem';
+
+            let energyBarContainer = document.createElement('div');
+            energyBarContainer.id = 'energy-bar-container';
+
+            let energyBar = document.createElement('div');
+            energyBar.id = 'energy-bar';
+            energyBarContainer.appendChild(energyBar);
+
+            let answerInput = document.createElement('input');
+            answerInput.type = 'number';
+            answerInput.id = 'answer-input';
+            answerInput.placeholder = '답을 입력하세요';
+            answerInput.onkeydown = function(event) {
+                if (event.key === 'Enter') {
+                    checkAnswer();
+                }
+            };
+
+            let submitButton = document.createElement('button');
+            submitButton.innerText = '확인';
+            submitButton.onclick = checkAnswer;
+
+            gameContainer.appendChild(totalTimeDiv);
+            gameContainer.appendChild(scoreDiv);
+            gameContainer.appendChild(chancesDiv);
+            gameContainer.appendChild(problemDiv);
+            gameContainer.appendChild(energyBarContainer);
+            gameContainer.appendChild(answerInput);
+            gameContainer.appendChild(submitButton);
+
+            document.body.appendChild(gameContainer);
+        }
+
+        function showNextProblem() {
+            if (currentProblemIndex >= problems.length) {
+                let randomIndex = Math.floor(Math.random() * problems.length);
+                currentProblem = problems[randomIndex];
+            } else {
+                currentProblem = problems[currentProblemIndex];
+            }
+
+            let problemText = currentProblem.num1 + ' + ' + currentProblem.num2 + ' = ?';
+            document.getElementById('problem').innerText = problemText;
+
+            document.getElementById('answer-input').value = '';
+            document.getElementById('answer-input').focus();
+
+            if (selectedDifficulty !== '하') {
+                startEnergyBar();
+            }
+        }
+
+        function startEnergyBar() {
+            let energyBar = document.getElementById('energy-bar');
+            let maxTime = timeLimit;
+            let timeLeft = timeLimit;
+            energyBar.style.width = '100%';
+
+            clearInterval(problemTimer);
+
+            problemTimer = setInterval(function() {
+                timeLeft -= 0.1;
+                let percentage = (timeLeft / maxTime) * 100;
+                energyBar.style.width = percentage + '%';
+
+                if (timeLeft <= 0) {
+                    clearInterval(problemTimer);
+                    chancesLeft--;
+                    updateChancesDisplay();
+
+                    if (chancesLeft <= 0) {
+                        endGame();
+                    } else {
+                        alert('시간 초과! 정답은 ' + currentProblem.sum + '입니다.');
+                        timeLimit *= (1 - timeLimitDecreaseRate);
+                        currentProblemIndex++;
+                        showNextProblem();
+                    }
+                }
+            }, 100);
+        }
+
+        function updateChancesDisplay() {
+            document.getElementById('chances').innerText = '남은 기회: ' + chancesLeft;
+        }
+
+        function checkAnswer() {
+            let userAnswer = parseInt(document.getElementById('answer-input').value);
+            if (isNaN(userAnswer)) {
+                alert('숫자를 입력하세요.');
+                return;
+            }
+
+            clearInterval(problemTimer);
+
+            if (userAnswer === currentProblem.sum) {
+                score += pointsPerQuestion;
+                document.getElementById('score').innerText = '점수: ' + score;
+
+                if (selectedDifficulty !== '하') {
+                    timeLimit *= (1 - timeLimitDecreaseRate);
+                }
+
+                currentProblemIndex++;
+                showNextProblem();
+            } else {
+                chancesLeft--;
+                updateChancesDisplay();
+                alert('틀렸습니다! 정답은 ' + currentProblem.sum + '입니다.');
+
+                if (chancesLeft <= 0) {
+                    endGame();
+                } else {
+                    if (selectedDifficulty !== '하') {
+                        timeLimit *= (1 - timeLimitDecreaseRate);
+                    }
+
+                    currentProblemIndex++;
+                    showNextProblem();
+                }
+            }
+        }
+
+        function endGame() {
+            clearInterval(gameInterval);
+            clearInterval(problemTimer);
+            alert('게임 종료! 최종 점수: ' + score + '점');
+            location.reload();
+        }
+
+        function formatTime(seconds) {
+            let minutes = Math.floor(seconds / 60);
+            let secs = Math.floor(seconds % 60);
+            return (minutes < 10 ? '0' + minutes : minutes) + ':' + (secs < 10 ? '0' + secs : secs);
+        }
+    </script>
+</body>
+</html>
